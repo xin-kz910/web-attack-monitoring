@@ -1,0 +1,65 @@
+{
+  "MODE": "BLOCK",
+  "BRUTE_FORCE_WINDOW_SECONDS": 60,
+  "BRUTE_FORCE_THRESHOLD": 5,
+
+  "SQLI_PATTERNS": [
+    " or 1=1",
+    "or 1=1",
+    "' or '1'='1",
+    "\" or \"1\"=\"1",
+    " or 1=1--",
+    " or 1=1#",
+    " or 1=1/*",
+    " union select",
+    "--",
+    ";--",
+    "/*",
+    "*/",
+    "sleep(",
+    "benchmark(",
+    "pg_sleep(",
+    "waitfor delay"
+  ],
+
+  "XSS_PATTERNS": [
+    "<script",
+    "</script",
+    "onerror=",
+    "onload=",
+    "onclick=",
+    "onmouseover=",
+    "onmouseenter=",
+    "onfocus=",
+    "onblur=",
+    "onchange=",
+    "onsubmit=",
+    "javascript:",
+    "alert("
+  ],
+
+  "PATH_TRAVERSAL_PATTERNS": [
+    "../",
+    "..\\",
+    "..%2f",
+    "%2e%2e%2f",
+    "/etc/passwd",
+    "/etc/shadow",
+
+    "c:\\\\windows",
+    "c:/windows",
+    "windows\\\\system32",
+    "windows/system32"
+  ],
+
+  "SUSPICIOUS_UA_PATTERNS": [
+    "sqlmap",
+    "python-requests",
+    "curl",
+    "scanner",
+    "nmap",
+    "acunetix",
+    "burp",
+    "fuzzer"
+  ]
+}
