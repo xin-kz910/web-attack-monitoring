@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>攻擊監控後台 /admin/monitor</title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      max-width: 1000px;
+      margin: 20px auto;
+      padding: 0 10px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    #status {
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: #ffffff;
+    }
+    thead {
+      background-color: #e3e8f0;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      font-size: 14px;
+      word-break: break-all;
+    }
+    th {
+      text-align: left;
+    }
+    .severity-high {
+      color: #d90429;
+      font-weight: bold;
+    }
+    .severity-medium {
+      color: #f39c12;
+      font-weight: bold;
+    }
+    .severity-low {
+      color: #2e7d32;
+      font-weight: bold;
+    }
+    .payload {
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #reloadBtn {
+      margin-bottom: 10px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>攻擊監控後台（/admin/monitor）</h1>
+
+  <div id="status">載入中...</div>
+  <button id="reloadBtn">重新載入</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>時間</th>
+        <th>攻擊類型</th>
+        <th>嚴重度</th>
+        <th>來源 IP</th>
+        <th>URL</th>
+        <th>Payload (前 30 字)</th>
+      </tr>
+    </thead>
+    <tbody id="attackTableBody">
+      <!-- 資料由 JS 填入 -->
+    </tbody>
+  </table>
+
+  <script>
+    async function loadAttacks() {
+      const statusEl = document.getElementById("status");
+      const tbody = document.getElementById("attackTableBody");
+      statusEl.textContent = "載入中...";
+      tbody.innerHTML = "";
+
+      try {
+        const res = await fetch("/api/attacks");
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+        const data = await res.json(); // 預期 { items: [ ... ] }
+
+        if (!data.items || !Array.isArray(data.items)) {
+          throw new Error("回傳格式錯誤：缺少 items 陣列");
+        }
+
+        if (data.items.length === 0) {
+          statusEl.textContent = "目前沒有攻擊紀錄。";
+          return;
+        }
+
+        data.items.forEach(item => {
+          const tr = document.createElement("tr");
+
+          // timestamp
+          const tdTime = document.createElement("td");
+          tdTime.textContent = item.timestamp || "";
+          tr.appendChild(tdTime);
+
+          // attack_type
+          const tdType = document.createElement("td");
+          tdType.textContent = item.attack_type || "";
+          tr.appendChild(tdType);
+
+          // severity
+          const tdSeverity = document.createElement("td");
+          const severity = (item.severity || "").toUpperCase();
+          tdSeverity.textContent = severity;
+
+          if (severity === "HIGH") {
+            tdSeverity.classList.add("severity-high");
+          } else if (severity === "MEDIUM") {
+            tdSeverity.classList.add("severity-medium");
+          } else if (severity === "LOW") {
+            tdSeverity.classList.add("severity-low");
+          }
+          tr.appendChild(tdSeverity);
+
+          // ip_address
+          const tdIP = document.createElement("td");
+          tdIP.textContent = item.ip_address || "";
+          tr.appendChild(tdIP);
+
+          // url
+          const tdUrl = document.createElement("td");
+          tdUrl.textContent = item.url || "";
+          tr.appendChild(tdUrl);
+
+          // payload (前 30 字)
+          const tdPayload = document.createElement("td");
+          let payload = item.payload || "";
+          if (payload.length > 30) {
+            payload = payload.slice(0, 30) + "...";
+          }
+          tdPayload.textContent = payload;
+          tdPayload.classList.add("payload");
+          tr.appendChild(tdPayload);
+
+          tbody.appendChild(tr);
+        });
+
+        statusEl.textContent = "載入完成，共 " + data.items.length + " 筆攻擊紀錄。";
+
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "載入失敗：" + err.message;
+      }
+    }
+
+    document.getElementById("reloadBtn").addEventListener("click", loadAttacks);
+
+    // 一進頁面就載入一次
+    loadAttacks();
+  </script>
+</body>
+</html>
