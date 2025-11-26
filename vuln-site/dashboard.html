@@ -188,7 +188,11 @@
                     body: JSON.stringify({ url })
                 });
                 const data = await res.json();
-                resBox.innerHTML = `<strong>Status:</strong> ${data.status_code}<br><strong>Response Preview:</strong><br>${data.sample_content || ''}`;
+                resBox.innerHTML = `
+                    <strong>Status:</strong> ${data.status_code}<br>
+                    <strong>Response Preview:</strong><br>
+                    <textarea class="form-control" rows="5" readonly style="background:#2d2d2d; color:#0f0; font-family:monospace;">${data.sample_content || ''}</textarea>
+                `;
             } catch(e) { resBox.innerText = "Connection Failed"; }
         }
 

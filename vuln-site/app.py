@@ -131,7 +131,7 @@ async def get_file(filename: str):
 # 目標：POST /api/proxy
 # 說明：Server 代替使用者發請求，未檢查是否為內網 IP
 @app.post("/api/proxy")
-async def proxy(data: ProxyRequest):
+def proxy(data: ProxyRequest):
     target_url = data.url
     
     # 錯誤寫法：沒有檢查 target_url 是否指向 localhost 或 192.168.x.x
