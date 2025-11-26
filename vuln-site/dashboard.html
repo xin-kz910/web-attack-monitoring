@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - DevOps Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f1f5f9; font-family: 'Segoe UI', sans-serif; }
+        /* 頂部導覽列 */
+        .navbar { background-color: #fff; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .navbar-brand { font-weight: bold; color: #0f172a; }
+        
+        /* 側邊欄 */
+        .sidebar {
+            height: 100vh;
+            position: fixed;
+            top: 56px;
+            left: 0;
+            width: 240px;
+            background-color: #1e293b;
+            padding-top: 20px;
+        }
+        .sidebar a {
+            color: #94a3b8;
+            padding: 12px 20px;
+            display: block;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+        .sidebar a:hover, .sidebar a.active {
+            background-color: #334155;
+            color: #fff;
+            border-left: 4px solid #38bdf8;
+        }
+        .sidebar i { margin-right: 10px; width: 20px; text-align: center; }
+
+        /* 主內容區 */
+        .main-content { margin-left: 240px; padding: 30px; margin-top: 56px; }
+        
+        /* 卡片樣式 */
+        .card { border: none; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
+        .card-header { background-color: #fff; border-bottom: 1px solid #e2e8f0; font-weight: 600; }
+        
+        /* 模擬圖表 */
+        .fake-chart { height: 150px; background: #e2e8f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #64748b; }
+
+        /* XSS 顯示區 */
+        #search-results { margin-top: 15px; }
+        
+        /* Code Block 樣式 */
+        pre { background: #1e293b; color: #cbd5e1; padding: 15px; border-radius: 6px; max-height: 300px; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg fixed-top px-4">
+        <a class="navbar-brand" href="#"><i class="fas fa-server text-primary"></i> DevOps Monitor</a>
+        <div class="collapse navbar-collapse justify-content-end">
+            <div class="d-flex align-items-center">
+                <div class="input-group">
+                    <input type="text" id="search-input" class="form-control form-control-sm" placeholder="Search logs or docs...">
+                    <button class="btn btn-outline-primary btn-sm" onclick="doSearch()"><i class="fas fa-search"></i></button>
+                </div>
+                <div class="ms-3 text-secondary small">Admin User</div>
+                <div class="ms-2"><img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" class="rounded-circle" width="32"></div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="sidebar">
+        <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> 儀表板總覽</a>
+        <a href="#network"><i class="fas fa-network-wired"></i> 網路診斷</a>
+        <a href="#logs"><i class="fas fa-file-code"></i> 系統日誌</a>
+        <a href="/"><i class="fas fa-sign-out-alt"></i> 登出</a>
+    </div>
+
+    <div class="main-content">
+        
+        <div id="search-results"></div>
+
+        <h4 class="mb-4 text-dark">系統概況</h4>
+        
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="text-secondary small">CPU Usage</div>
+                    <div class="h3 mb-0">45%</div>
+                    <div class="progress mt-2" style="height: 5px;"><div class="progress-bar bg-success" style="width: 45%"></div></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="text-secondary small">Memory</div>
+                    <div class="h3 mb-0">2.4 GB</div>
+                    <div class="progress mt-2" style="height: 5px;"><div class="progress-bar bg-warning" style="width: 60%"></div></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="text-secondary small">Active Pods</div>
+                    <div class="h3 mb-0">12</div>
+                    <div class="progress mt-2" style="height: 5px;"><div class="progress-bar bg-info" style="width: 80%"></div></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="text-secondary small">Errors</div>
+                    <div class="h3 mb-0 text-danger">3</div>
+                    <div class="progress mt-2" style="height: 5px;"><div class="progress-bar bg-danger" style="width: 10%"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 mb-4" id="network">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-globe"></i> Webhook 連線測試</span>
+                        <span class="badge bg-secondary">Network Tool</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">輸入目標 URL 以測試 Webhook 回調狀態</p>
+                        <div class="input-group mb-3">
+                            <input type="text" id="proxy-url" class="form-control" placeholder="http://api.internal.service..." value="http://google.com">
+                            <button class="btn btn-primary" onclick="doProxy()">Test</button>
+                        </div>
+                        <div id="proxy-result" class="bg-light p-2 rounded small text-secondary" style="display:none; height: 100px; overflow: auto;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4" id="logs">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-terminal"></i> 系統配置與日誌檢視</span>
+                        <span class="badge bg-danger">Admin Only</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">檢視伺服器設定檔 (Config Viewer)。</p>
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="loadFile('requirements.txt')">Dep List</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="loadFile('README.md')">Readme</button>
+                            <input type="text" id="file-name" class="form-control form-control-sm" placeholder="Custom filename (Debug mode)..." value="app.py">
+                            <button class="btn btn-dark btn-sm" onclick="loadCustomFile()">Load</button>
+                        </div>
+                        <pre id="file-content">等待讀取...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // [漏洞 2] XSS
+        async function doSearch() {
+            const kw = document.getElementById('search-input').value;
+            const resArea = document.getElementById('search-results');
+            
+            try {
+                const res = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ keyword: kw })
+                });
+                const html = await res.text();
+                // 模擬搜尋結果介面
+                resArea.innerHTML = `
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <strong>Search Result:</strong> 找不到關於 ${html} 的文件。
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+            } catch(e) {}
+        }
+
+        // [漏洞 6] SSRF
+        async function doProxy() {
+            const url = document.getElementById('proxy-url').value;
+            const resBox = document.getElementById('proxy-result');
+            resBox.style.display = 'block';
+            resBox.innerText = "Pinging...";
+
+            try {
+                const res = await fetch('/api/proxy', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                resBox.innerHTML = `<strong>Status:</strong> ${data.status_code}<br><strong>Response Preview:</strong><br>${data.sample_content || ''}`;
+            } catch(e) { resBox.innerText = "Connection Failed"; }
+        }
+
+        // [漏洞 3] Path Traversal
+        function loadFile(name) {
+            document.getElementById('file-name').value = name;
+            loadCustomFile();
+        }
+
+        async function loadCustomFile() {
+            const name = document.getElementById('file-name').value;
+            const box = document.getElementById('file-content');
+            box.innerText = "Loading...";
+
+            try {
+                const res = await fetch(`/api/file?filename=${name}`);
+                const text = await res.text();
+                box.innerText = text;
+            } catch(e) { box.innerText = "Error reading file"; }
+        }
+    </script>
+</body>
+</html>

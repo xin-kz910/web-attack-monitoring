@@ -52,10 +52,15 @@ init_db()
 
 # --- 漏洞 API 實作 ---
 
-# 根目錄路由：回傳前端網頁 (index.html)
+# root 路由回傳 login.html
 @app.get("/")
 async def root():
-    return FileResponse("index.html")
+    return FileResponse("login.html")
+
+# dashboard 路由
+@app.get("/dashboard")
+async def dashboard():
+    return FileResponse("dashboard.html")
 
 # 【漏洞 1 & 4】SQL Injection & Brute Force
 # 目標：POST /api/login [cite: 201]
