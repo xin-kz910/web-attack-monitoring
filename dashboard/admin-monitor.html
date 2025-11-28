@@ -1,174 +1,371 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <title>攻擊監控後台 /admin/monitor</title>
-  <style>
-    body {
-      font-family: "Microsoft JhengHei", sans-serif;
-      max-width: 1000px;
-      margin: 20px auto;
-      padding: 0 10px;
-      background-color: #f5f5f5;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 16px;
-    }
-    #status {
-      margin-bottom: 10px;
-      font-size: 14px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: #ffffff;
-    }
-    thead {
-      background-color: #e3e8f0;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 6px 8px;
-      font-size: 14px;
-      word-break: break-all;
-    }
-    th {
-      text-align: left;
-    }
-    .severity-high {
-      color: #d90429;
-      font-weight: bold;
-    }
-    .severity-medium {
-      color: #f39c12;
-      font-weight: bold;
-    }
-    .severity-low {
-      color: #2e7d32;
-      font-weight: bold;
-    }
-    .payload {
-      max-width: 260px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    #reloadBtn {
-      margin-bottom: 10px;
-      padding: 6px 12px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>攻擊監控儀表板 - Mini WAF</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <script>
+        tailwind.config = { darkMode: "class" };
+    </script>
+
+    <style>
+        body {
+            background-color: #0f172a;
+        }
+
+        .card {
+            @apply bg-gray-800 p-6 rounded-xl shadow-md border border-gray-700;
+        }
+
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            background-color: #1e293b;
+            z-index: 10;
+        }
+        .stat-card {
+            @apply bg-gray-800 border border-gray-700 rounded-xl shadow-lg p-6
+                  transition duration-200 hover:shadow-xl hover:border-gray-500;
+        }
+
+        .stat-title {
+            @apply text-sm tracking-wide text-gray-400 mb-1;
+        }
+
+        .stat-value {
+            @apply text-4xl font-extrabold text-white leading-tight;
+        }
+
+        .stat-value-small {
+            @apply text-lg font-semibold text-white leading-tight truncate;
+        }
+    </style>
 </head>
-<body>
-  <h1>攻擊監控後台（/admin/monitor）</h1>
 
-  <div id="status">載入中...</div>
-  <button id="reloadBtn">重新載入</button>
+<body class="dark min-h-screen p-8 text-gray-100">
 
-  <table>
-    <thead>
-      <tr>
-        <th>時間</th>
-        <th>攻擊類型</th>
-        <th>嚴重度</th>
-        <th>來源 IP</th>
-        <th>URL</th>
-        <th>Payload (前 30 字)</th>
-      </tr>
-    </thead>
-    <tbody id="attackTableBody">
-      <!-- 資料由 JS 填入 -->
-    </tbody>
-  </table>
+<div class="max-w-7xl mx-auto">
 
-  <script>
-    async function loadAttacks() {
-      const statusEl = document.getElementById("status");
-      const tbody = document.getElementById("attackTableBody");
-      statusEl.textContent = "載入中...";
-      tbody.innerHTML = "";
+    <!-- 標題 -->
+    <header class="mb-6">
+        <h1 class="text-3xl font-bold flex items-center gap-2">
+            🛡 攻擊監控儀表板 (Monitoring Dashboard)
+        </h1>
+        <p class="text-gray-400">即時偵測與記錄系統接收到的惡意請求。</p>
+    </header>
 
-      try {
-        const res = await fetch("/api/attacks");
-        if (!res.ok) {
-          throw new Error("HTTP " + res.status);
-        }
-        const data = await res.json(); // 預期 { items: [ ... ] }
+    <!-- 統計卡片（全新美化版本） -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
 
-        if (!data.items || !Array.isArray(data.items)) {
-          throw new Error("回傳格式錯誤：缺少 items 陣列");
-        }
+    <!-- 總攻擊次數 -->
+    <div id="total-attacks"
+        class="bg-gray-800 border border-gray-700 hover:border-gray-500 transition shadow-lg hover:shadow-xl rounded-xl p-6 border-l-4 border-indigo-500 cursor-pointer">
+        <p class="text-sm tracking-wide text-gray-400 mb-1">總攻擊次數</p>
+        <p class="text-4xl font-extrabold text-white leading-tight">載入中...</p>
+    </div>
 
-        if (data.items.length === 0) {
-          statusEl.textContent = "目前沒有攻擊紀錄。";
-          return;
-        }
+    <!-- 高危險 -->
+    <div id="high-severity"
+        class="bg-gray-800 border border-gray-700 hover:border-gray-500 transition shadow-lg hover:shadow-xl rounded-xl p-6 border-l-4 border-red-500 cursor-pointer">
+        <p class="text-sm tracking-wide text-gray-400 mb-1">高危險等級 (HIGH)</p>
+        <p class="text-4xl font-extrabold text-white leading-tight">載入中...</p>
+    </div>
 
-        data.items.forEach(item => {
-          const tr = document.createElement("tr");
+    <!-- 最活躍 IP -->
+    <div id="top-attacker"
+        class="bg-gray-800 border border-gray-700 hover:border-gray-500 transition shadow-lg hover:shadow-xl rounded-xl p-6 border-l-4 border-green-500 cursor-pointer">
+        <p class="text-sm tracking-wide text-gray-400 mb-1">最活躍 IP</p>
+        <p class="text-xl font-semibold text-white leading-tight truncate">載入中...</p>
+    </div>
 
-          // timestamp
-          const tdTime = document.createElement("td");
-          tdTime.textContent = item.timestamp || "";
-          tr.appendChild(tdTime);
+</div>
 
-          // attack_type
-          const tdType = document.createElement("td");
-          tdType.textContent = item.attack_type || "";
-          tr.appendChild(tdType);
 
-          // severity
-          const tdSeverity = document.createElement("td");
-          const severity = (item.severity || "").toUpperCase();
-          tdSeverity.textContent = severity;
+    <!-- 圖表 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 ">
 
-          if (severity === "HIGH") {
-            tdSeverity.classList.add("severity-high");
-          } else if (severity === "MEDIUM") {
-            tdSeverity.classList.add("severity-medium");
-          } else if (severity === "LOW") {
-            tdSeverity.classList.add("severity-low");
-          }
-          tr.appendChild(tdSeverity);
+        <!-- 圓餅圖（加大 350px） -->
+        <div class="card flex flex-col items-center">
+            <h3 class="text-lg font-semibold mb-4">攻擊類型分布 (Attack Type Distribution)</h3>
+            <div class="w-[350px] h-[350px]">
+                <canvas id="attackTypeChart" class="cursor-pointer"></canvas>
+            </div>
+        </div>
 
-          // ip_address
-          const tdIP = document.createElement("td");
-          tdIP.textContent = item.ip_address || "";
-          tr.appendChild(tdIP);
+        <!-- 長條圖（已縮小為與圓餅圖一致的大小） -->
+        <div class="card flex flex-col items-center">
+        <h3 class="text-lg font-semibold mb-4">嚴重度等級分布 (Severity Distribution)</h3>
+    
+            <!-- 固定長條圖外層大小 -->
+            <div class="w-[350px] h-[350px]">
+            <canvas id="severityChart" class="cursor-pointer"></canvas>
+            </div>
+        </div>
 
-          // url
-          const tdUrl = document.createElement("td");
-          tdUrl.textContent = item.url || "";
-          tr.appendChild(tdUrl);
 
-          // payload (前 30 字)
-          const tdPayload = document.createElement("td");
-          let payload = item.payload || "";
-          if (payload.length > 30) {
-            payload = payload.slice(0, 30) + "...";
-          }
-          tdPayload.textContent = payload;
-          tdPayload.classList.add("payload");
-          tr.appendChild(tdPayload);
+    </div>
 
-          tbody.appendChild(tr);
-        });
+    <!-- 攻擊表格 -->
+    <div class="card overflow-hidden">
+        <div class="p-4 flex justify-between items-center border-b border-gray-700">
+            <h2 class="text-xl font-semibold">最新攻擊紀錄</h2>
+            <button onclick="fetchAttackLogs()" class="bg-blue-600 hover:bg-blue-500 text-white py-1 px-3 rounded-md text-sm">
+                🔄 手動刷新
+            </button>
+        </div>
 
-        statusEl.textContent = "載入完成，共 " + data.items.length + " 筆攻擊紀錄。";
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-700">
+                <thead class="bg-gray-700">
+                    <tr class="text-gray-300">
+                        <th class="sticky-header px-6 py-3 text-left text-xs font-medium">時間</th>
+                        <th class="sticky-header px-6 py-3 text-left text-xs font-medium">攻擊類型</th>
+                        <th class="sticky-header px-6 py-3 text-left text-xs font-medium">嚴重度</th>
+                        <th class="sticky-header px-6 py-3 text-left text-xs font-medium">來源 IP</th>
+                        <th class="sticky-header px-6 py-3 text-left text-xs font-medium">URL</th>
+                        <th class="sticky-header px-6 py-3 text-left text-xs font-medium">Payload</th>
+                    </tr>
+                </thead>
 
-      } catch (err) {
-        console.error(err);
-        statusEl.textContent = "載入失敗：" + err.message;
-      }
+                <tbody id="attack-log-body" class="divide-y divide-gray-700">
+                    <tr><td colspan="6" class="text-center py-4 text-gray-400">載入中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/* ========== 圖表銷毀變數 ========== */
+window.attackTypeChart = null;
+window.severityChart = null;
+
+/* ========== Badge 色系 ========== */
+function getSeverityBadge(severity) {
+    const s = severity.toUpperCase();
+    const colors = {
+        HIGH: "bg-red-900 text-red-300",
+        MEDIUM: "bg-yellow-800 text-yellow-200",
+        LOW: "bg-green-800 text-green-200"
+    };
+    return `<span class="px-2 py-1 text-xs rounded ${colors[s] || "bg-gray-700 text-gray-300"}">${s}</span>`;
+}
+
+/* ========== 渲染表格 ========== */
+function renderTable(logs) {
+    const body = document.getElementById("attack-log-body");
+    body.innerHTML = "";
+
+    logs.forEach(log => {
+        const payload = log.payload.length > 30 ? log.payload.substring(0, 30) + "..." : log.payload;
+
+        const row = `
+            <tr class="hover:bg-gray-700/50">
+                <td class="px-6 py-3 text-sm">${log.timestamp}</td>
+                <td class="px-6 py-3 text-sm text-blue-400">${log.attack_type}</td>
+                <td class="px-6 py-3 text-sm">${getSeverityBadge(log.severity)}</td>
+                <td class="px-6 py-3 text-sm text-gray-300">${log.ip_address}</td>
+                <td class="px-6 py-3 text-sm text-gray-300">${log.url}</td>
+                <td class="px-6 py-3 text-sm font-mono text-gray-400">${payload}</td>
+            </tr>
+        `;
+        body.insertAdjacentHTML("beforeend", row);
+    });
+}
+
+/* ========== 圖表渲染 ========== */
+function renderCharts(typeData, severityData) {
+
+    /* 圓餅圖 */
+    if (window.attackTypeChart) window.attackTypeChart.destroy();
+    window.attackTypeChart = new Chart(document.getElementById("attackTypeChart"), {
+    type: "pie",
+    data: {
+        labels: Object.keys(typeData),
+        datasets: [{
+            data: Object.values(typeData),
+
+            // ⭐ 6 種固定顏色（不會重複、深色模式友善）
+            backgroundColor: [
+                "#ef4444", // SQLI - 紅
+                "#3b82f6", // XSS - 藍
+                "#fbbf24", // BRUTE_FORCE - 黃
+                "#10b981", // OTHER - 綠
+                "#ec4899", // CMD_INJECTION - 粉
+                "#6366f1"  // PATH_TRAVERSAL - 紫
+            ],
+
+            // ⭐ Hover 高亮邊框
+            borderColor: "#ffffff",
+            borderWidth: 2,
+
+            hoverBorderWidth: 3,
+            hoverOffset: 12   // ⭐ 放大效果
+        }]
+    },
+    options: {
+        plugins: {
+            legend: {
+                position: "bottom",
+                labels: {
+                    color: "#cbd5e1", // 深色文字
+                    padding: 15,
+                    usePointStyle: true,   // ⭐ 改成小圓點更專業
+                    pointStyle: "circle"
+                },
+
+                // ⭐ 圖例 hover 效果
+                onHover: (evt, item) => {
+                    evt.chart.getDatasetMeta(0).data[item.index].outerRadius += 10;
+                    evt.chart.update();
+                },
+                onLeave: (evt, item) => {
+                    evt.chart.getDatasetMeta(0).data[item.index].outerRadius -= 10;
+                    evt.chart.update();
+                }
+            }
+        },
+
+        // ⭐ 讓 hover 動畫更順
+        animation: {
+            animateRotate: true,
+            duration: 600
+        },
+
+        maintainAspectRatio: false
     }
+});
 
-    document.getElementById("reloadBtn").addEventListener("click", loadAttacks);
+    // ======= 長條圖（Severity Distribution）=======
+if (window.severityChart) window.severityChart.destroy();
 
-    // 一進頁面就載入一次
-    loadAttacks();
-  </script>
+window.severityChart = new Chart(document.getElementById("severityChart"), {
+    type: "bar",
+    data: {
+        labels: Object.keys(severityData),
+        datasets: [{
+            data: Object.values(severityData),
+
+            // ⭐ 固定三種深色系 WAF 專業顏色
+            backgroundColor: [
+                "#ef4444", // HIGH - 紅
+                "#f59e0b", // MEDIUM - 橘
+                "#10b981"  // LOW - 綠
+            ],
+
+            // ⭐ 初始邊框
+            borderColor: "#ffffff22",
+            borderWidth: 2,
+
+            // ⭐ hover 放大 / 高亮
+            hoverBackgroundColor: [
+                "#f87171", // HIGH hover
+                "#fbbf24", // MEDIUM hover
+                "#34d399" // LOW hover
+            ],
+            hoverBorderColor: "#ffffff",
+            hoverBorderWidth: 3
+        }]
+    },
+    options: {
+        maintainAspectRatio: false,
+
+        // ⭐ 動畫更平滑
+        animation: {
+            duration: 600,
+            easing: "easeOutQuart"
+        },
+
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: "#cbd5e1"
+                },
+                grid: {
+                    color: "#334155"
+                }
+            },
+            x: {
+                ticks: {
+                    color: "#cbd5e1"
+                },
+                grid: {
+                    display: false
+                }
+            }
+        },
+
+        plugins: {
+            legend: { display: false },
+
+            // ⭐ 圖例 hover 也高亮（若你之後想加 legend）
+            tooltip: {
+                enabled: true,
+                backgroundColor: "#1e293b",
+                titleColor: "#fff",
+                bodyColor: "#e2e8f0",
+                borderWidth: 1,
+                borderColor: "#475569"
+            }
+        },
+    }
+});
+
+}
+
+/* ========== 統計卡片 ========== */
+function renderStats(logs) {
+    document.querySelector("#total-attacks p:last-child").textContent = logs.length;
+
+    const high = logs.filter(l => l.severity === "HIGH").length;
+    document.querySelector("#high-severity p:last-child").textContent = high;
+
+    const ipCount = {};
+    logs.forEach(l => ipCount[l.ip_address] = (ipCount[l.ip_address] || 0) + 1);
+
+    let topIP = "無紀錄";
+    let max = 0;
+    for (const ip in ipCount) {
+        if (ipCount[ip] > max) {
+            max = ipCount[ip];
+            topIP = `${ip} (${max} 次)`;
+        }
+    }
+    document.querySelector("#top-attacker p:last-child").textContent = topIP;
+
+    const typeCount = { SQLI: 0, XSS: 0, BRUTE_FORCE: 0, OTHER: 0 };
+    const sevCount = { HIGH: 0, MEDIUM: 0, LOW: 0 };
+
+    logs.forEach(l => {
+        typeCount[l.attack_type] = (typeCount[l.attack_type] || 0) + 1;
+        sevCount[l.severity] = (sevCount[l.severity] || 0) + 1;
+    });
+
+    renderCharts(typeCount, sevCount);
+}
+
+/* ========== 取得資料 ========== */
+function fetchAttackLogs() {
+    fetch("http://127.0.0.1:5000/logs")
+        .then(res => res.json())
+        .then(data => {
+            renderTable(data);
+            renderStats(data);
+        });
+}
+
+/* 自動刷新（10 秒） */
+setInterval(fetchAttackLogs, 5000);
+
+/* 初次載入 */
+fetchAttackLogs();
+</script>
+
 </body>
 </html>
