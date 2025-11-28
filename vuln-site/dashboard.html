@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賣家中心 | ShopEasy</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #ee4d2d; /* 蝦皮橘 */
+            --sidebar-width: 250px;
+            --bg-light: #f6f6f6;
+        }
+        body { background-color: var(--bg-light); font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif; }
+        
+        /* 側邊欄 */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #fff;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.03);
+            z-index: 1000;
+        }
+        .sidebar-brand {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            border-bottom: 1px solid #eee;
+        }
+        .nav-link {
+            color: #555;
+            padding: 12px 20px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+        }
+        .nav-link i { width: 25px; margin-right: 10px; text-align: center; }
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary-color);
+            background-color: #fffaf9;
+            border-right: 3px solid var(--primary-color);
+        }
+
+        /* 主內容區 */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 20px 30px;
+        }
+
+        /* 頂部導覽 */
+        .top-navbar {
+            background: #fff;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            border-radius: 8px;
+        }
+        
+        /* 卡片優化 */
+        .card { border: none; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); margin-bottom: 20px; background: #fff; }
+        .card-header { background: #fff; border-bottom: 1px solid #f0f0f0; font-weight: 600; padding: 15px 20px; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: #333; }
+        .stat-label { font-size: 0.9rem; color: #888; }
+        .text-up { color: #28a745; font-size: 0.8rem; }
+        
+        /* 表格優化 */
+        .table thead th { border-top: none; color: #888; font-weight: 500; font-size: 0.9rem; }
+        .table td { vertical-align: middle; padding: 12px 10px; }
+        .badge-status { padding: 5px 10px; border-radius: 20px; font-size: 0.75rem; }
+        .badge-pending { background: #fff8e1; color: #ffc107; }
+        .badge-success { background: #e8f5e9; color: #4caf50; }
+        .badge-shipping { background: #e3f2fd; color: #2196f3; }
+
+        /* 漏洞隱藏區塊樣式 */
+        .dev-tool-input { font-family: monospace; font-size: 0.9rem; background: #f8f9fa; }
+        .code-preview { background: #2d2d2d; color: #00ff00; padding: 15px; border-radius: 6px; font-family: monospace; font-size: 0.8rem; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <i class="fas fa-shopping-bag me-2"></i> ShopEasy
+        </div>
+        <nav class="nav flex-column mt-3">
+            <a href="#" class="nav-link active"><i class="fas fa-home"></i> 賣場儀表板</a>
+            <a href="#" class="nav-link"><i class="fas fa-box-open"></i> 商品管理</a>
+            <a href="#" class="nav-link"><i class="fas fa-clipboard-list"></i> 訂單查詢</a>
+            <a href="#" class="nav-link"><i class="fas fa-chart-line"></i> 營收報表</a>
+            <a href="#" class="nav-link"><i class="fas fa-bullhorn"></i> 行銷活動</a>
+            <a href="#" class="nav-link"><i class="fas fa-wallet"></i> 我的錢包</a>
+            <div class="mt-4 px-3 text-muted small text-uppercase fw-bold">系統設定</div>
+            <a href="#integration" class="nav-link"><i class="fas fa-plug"></i> 串接與整合</a>
+            <a href="#logs" class="nav-link"><i class="fas fa-tools"></i> 系統日誌</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="top-navbar">
+            <div class="d-flex align-items-center flex-grow-1 me-4">
+                <i class="fas fa-bars text-secondary me-3" style="cursor: pointer;"></i>
+                <div class="input-group" style="max-width: 400px;">
+                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-search text-muted"></i></span>
+                    <input type="text" id="search-input" class="form-control bg-light border-start-0" placeholder="搜尋訂單 ID、商品或客戶..." onkeydown="if(event.key==='Enter') doSearch()">
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative">
+                    <i class="fas fa-bell text-secondary fs-5"></i>
+                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=ee4d2d&color=fff" class="rounded-circle me-2" width="32">
+                    <span class="fw-bold small">ShopAdmin</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="search-result-area"></div>
+
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="stat-label">今日營收 (Revenue)</div>
+                    <div class="d-flex align-items-end justify-content-between mt-2">
+                        <div class="stat-value">$24,500</div>
+                        <span class="text-up"><i class="fas fa-arrow-up"></i> 12.5%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="stat-label">待出貨訂單 (Pending)</div>
+                    <div class="d-flex align-items-end justify-content-between mt-2">
+                        <div class="stat-value text-warning">18</div>
+                        <span class="text-muted small">需 24h 內處理</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="stat-label">今日訪客 (Visitors)</div>
+                    <div class="d-flex align-items-end justify-content-between mt-2">
+                        <div class="stat-value">1,203</div>
+                        <span class="text-up"><i class="fas fa-arrow-up"></i> 5.2%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3">
+                    <div class="stat-label">轉換率 (Conversion)</div>
+                    <div class="d-flex align-items-end justify-content-between mt-2">
+                        <div class="stat-value text-primary">3.8%</div>
+                        <span class="text-muted small">高於平均</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>近 7 日營收趨勢</span>
+                        <button class="btn btn-sm btn-outline-secondary">匯出報表</button>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="revenueChart" height="120"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">平台公告</div>
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action py-3">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 text-primary">【雙11活動】報名開跑</h6>
+                                <small class="text-muted">3天前</small>
+                            </div>
+                            <small class="text-muted">請賣家盡快設定活動庫存...</small>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action py-3">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">系統維護通知</h6>
+                                <small class="text-muted">1週前</small>
+                            </div>
+                            <small class="text-muted">將於本週五凌晨進行停機維護...</small>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action py-3">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 text-danger">資安宣導</h6>
+                                <small class="text-muted">置頂</small>
+                            </div>
+                            <small class="text-muted">請勿將帳號密碼提供給他人...</small>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">近期訂單 (Recent Orders)</div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>訂單編號</th>
+                            <th>買家</th>
+                            <th>商品摘要</th>
+                            <th>總金額</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>#ORD-2024881</td>
+                            <td>王大明</td>
+                            <td>無線藍芽耳機 Air...</td>
+                            <td>$1,299</td>
+                            <td><span class="badge badge-success">已完成</span></td>
+                            <td><button class="btn btn-sm btn-light">查看</button></td>
+                        </tr>
+                        <tr>
+                            <td>#ORD-2024882</td>
+                            <td>Lisa Chen</td>
+                            <td>韓系寬鬆大學 T...</td>
+                            <td>$590</td>
+                            <td><span class="badge badge-shipping">運送中</span></td>
+                            <td><button class="btn btn-sm btn-light">查看</button></td>
+                        </tr>
+                        <tr>
+                            <td>#ORD-2024883</td>
+                            <td>Kevin Lin</td>
+                            <td>機械式鍵盤 (紅軸)</td>
+                            <td>$2,450</td>
+                            <td><span class="badge badge-pending">待出貨</span></td>
+                            <td><button class="btn btn-sm btn-outline-primary">出貨</button></td>
+                        </tr>
+                        <tr>
+                            <td>#ORD-2024884</td>
+                            <td>張小美</td>
+                            <td>保濕精華液 50ml</td>
+                            <td>$890</td>
+                            <td><span class="badge badge-pending">待出貨</span></td>
+                            <td><button class="btn btn-sm btn-outline-primary">出貨</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <hr class="my-5 border-secondary">
+
+        <div class="row">
+            <div class="col-12 mb-3">
+                <h5 class="text-secondary"><i class="fas fa-cogs"></i> 進階整合設定 (Advanced Integration)</h5>
+            </div>
+
+            <div class="col-md-6 mb-4" id="integration">
+                <div class="card h-100 border-warning border-top border-3">
+                    <div class="card-body">
+                        <h6 class="card-title fw-bold mb-3">物流夥伴 API 連線測試 (Webhook)</h6>
+                        <p class="text-muted small">請輸入物流商提供的 Webhook URL 以測試庫存同步狀態。</p>
+                        
+                        <div class="input-group mb-2">
+                            <input type="text" id="proxy-url" class="form-control dev-tool-input" value="http://logistics-api.partner.com/ping">
+                            <button class="btn btn-dark" onclick="doProxy()">連線檢測</button>
+                        </div>
+                        <small class="text-muted d-block mb-2">
+                            * 測試內網： <code>http://127.0.0.1:5000</code>
+                        </small>
+                        
+                        <div id="proxy-result" class="code-preview d-none"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4" id="logs">
+                <div class="card h-100 border-danger border-top border-3">
+                    <div class="card-body">
+                        <h6 class="card-title fw-bold mb-3">匯出系統除錯日誌 (Debug Logs)</h6>
+                        <p class="text-muted small">若遇到訂單異常，請下載 Error Log 並提供給技術支援團隊。</p>
+                        
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-light">Filename:</span>
+                            <input type="text" id="file-name" class="form-control dev-tool-input" value="error_log_2023.txt">
+                            <button class="btn btn-outline-secondary" onclick="loadFile()">讀取預覽</button>
+                        </div>
+                        <small class="text-muted d-block mb-2">
+                            * 嘗試讀取： <code>requirements.txt</code> 或 <code>app.py</code>
+                        </small>
+
+                        <pre id="file-content" class="code-preview d-none">等待讀取...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-muted py-4 small">
+            &copy; 2024 ShopEasy Inc. All rights reserved. <br>
+            Server Time: <span id="server-time"></span>
+        </footer>
+
+    </div>
+
+    <script>
+        // 設定現在時間
+        document.getElementById('server-time').innerText = new Date().toLocaleString();
+
+        // 1. 初始化圖表 (Fake Data)
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: '本週營收',
+                    data: [12000, 19000, 15000, 22000, 24500, 28000, 31000],
+                    borderColor: '#ee4d2d',
+                    backgroundColor: 'rgba(238, 77, 45, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        // --- 漏洞邏輯 (功能保持不變) ---
+
+        // [漏洞 2] XSS
+        async function doSearch() {
+            const kw = document.getElementById('search-input').value;
+            const resArea = document.getElementById('search-result-area');
+            
+            if(!kw) return;
+
+            try {
+                const res = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ keyword: kw })
+                });
+                const html = await res.text();
+                // 模擬搜尋介面回傳
+                resArea.innerHTML = `
+                    <div class="alert alert-warning alert-dismissible fade show shadow-sm" role="alert">
+                        <strong><i class="fas fa-exclamation-triangle"></i> 查無結果：</strong> 系統找不到符合「${html}」的訂單資料。
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+            } catch(e) {}
+        }
+
+        // [漏洞 6] SSRF
+        async function doProxy() {
+            const url = document.getElementById('proxy-url').value;
+            const resBox = document.getElementById('proxy-result');
+            
+            resBox.classList.remove('d-none');
+            resBox.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Testing Connection...';
+
+            try {
+                const res = await fetch('/api/proxy', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                
+                resBox.innerHTML = `[STATUS]: ${data.status_code}\n[RESPONSE]:\n${data.sample_content || '(No Content)'}`;
+            } catch(e) { resBox.innerText = "Connection Failed: " + e; }
+        }
+
+        // [漏洞 3] Path Traversal
+        async function loadFile() {
+            const name = document.getElementById('file-name').value;
+            const box = document.getElementById('file-content');
+            
+            box.classList.remove('d-none');
+            box.innerText = "Reading file stream...";
+
+            try {
+                const res = await fetch(`/api/file?filename=${name}`);
+                const text = await res.text();
+                box.innerText = text;
+            } catch(e) { box.innerText = "Error reading file"; }
+        }
+    </script>
+</body>
+</html>
