@@ -117,7 +117,8 @@ if __name__ == "__main__":
     record_failed_login('10.0.0.1')
     if check_brute_force('10.0.0.1'):
         print("   -> 允許登入")
-    else:
+    else:python docs/secure_functions.py
+    
         print("   -> 🚫 失敗次數過多，IP 已被封鎖！")
 
     # 5. 測試 User-Agent

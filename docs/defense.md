@@ -15,4 +15,16 @@
 ```python
 # 危險！直接把字串拼起來，駭客輸入 ' OR '1'='1 就能登入
 sql = f"SELECT * FROM users WHERE username = '{data['username']}' AND password = '{data['password']}'"
-cursor.execute(sql)
+cursor.execute(sql)# 🛡️ 登入系統防禦實作 (SQL Injection Defense)
+
+針對本專案 `POST /api/login` 接口，我們使用 **Prepared Statement (參數化查詢)** 來修補 SQL Injection 漏洞。
+
+## 📋 規格說明 (Spec)
+* **API 路徑**：`POST /api/login`
+* **HTTP Method**：`POST`
+* **Request Body**：
+  ```json
+  {
+    "username": "...",
+    "password": "..."
+  }
