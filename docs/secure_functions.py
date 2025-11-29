@@ -93,14 +93,14 @@ def check_ssrf_url(target_url):
         return False
 
 # ==========================================
-# 🧪 自我測試區 (這裡修好了！)
+# 🧪 自我測試區
 # ==========================================
 if __name__ == "__main__":
     print("--- 開始測試 6 大防禦模組 ---\n")
 
     # 1. 測試 SQLi
     print(f"1. SQLi 防禦測試: {secure_login('admin', 'wrong_pass')}")
-    # 這裡把攻擊字串拉出來變數，就不會報錯了
+    # 這裡把攻擊字串拉出來變數，避免引號錯誤
     attack_payload = "' OR '1'='1"
     print(f"   SQLi 攻擊測試: {secure_login('admin', attack_payload)}")
 
@@ -117,8 +117,7 @@ if __name__ == "__main__":
     record_failed_login('10.0.0.1')
     if check_brute_force('10.0.0.1'):
         print("   -> 允許登入")
-    else:python docs/secure_functions.py
-    
+    else:
         print("   -> 🚫 失敗次數過多，IP 已被封鎖！")
 
     # 5. 測試 User-Agent
