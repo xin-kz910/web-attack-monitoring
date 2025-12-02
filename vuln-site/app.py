@@ -5,7 +5,10 @@ import requests
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict
+
+# 🔗 A + B 串接：匯入偵測模組
+from detector import detect_attack
 
 # 建立 FastAPI 實例
 app = FastAPI(title="Vulnerable Web App (Module A)")
@@ -22,11 +25,40 @@ class SearchRequest(BaseModel):
 class ProxyRequest(BaseModel):
     url: str
 
+
+# ========= A+B 串接：把 FastAPI Request 轉成 DetectionInput =========
+
+def build_detection_input(request: Request, body: Optional[Dict] = None) -> dict:
+    """
+    轉成 B 模組 detect_attack 需要的格式：
+
+    {
+      "ip_address": "string",
+      "url": "string",
+      "http_method": "string",
+      "params": dict,
+      "body": dict,
+      "user_agent": "string"
+    }
+    """
+    if body is None:
+        body = {}
+
+    return {
+        "ip_address": request.client.host if request.client else "",
+        "url": request.url.path,                   # 例如 /api/login
+        "http_method": request.method,            # GET / POST ...
+        "params": dict(request.query_params),     # Query string
+        "body": body,                             # 我們自己塞進去的 body
+        "user_agent": request.headers.get("user-agent", "")
+    }
+
+
 # --- 資料庫初始化 ---
 # 啟動時自動建立 users 表並插入測試帳號 
 def init_db():
     if os.path.exists(DB_NAME):
-        os.remove(DB_NAME) # 重置資料庫
+        os.remove(DB_NAME)  # 重置資料庫
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -62,18 +94,39 @@ async def root():
 async def dashboard():
     return FileResponse("dashboard.html")
 
+
 # 【漏洞 1 & 4】SQL Injection & Brute Force
-# 目標：POST /api/login [cite: 201]
+# 目標：POST /api/login
 # 說明：使用 f-string 拼接 SQL，導致 ' OR '1'='1 可繞過驗證
 @app.post("/api/login")
-async def login(data: LoginRequest):
+async def login(request: Request, data: LoginRequest):
+    # --- 先做攻擊偵測 ---
+    detection_input = build_detection_input(
+        request,
+        body={"username": data.username, "password": data.password}
+    )
+    detection_result = detect_attack(detection_input)
+    print("[DETECT] /api/login ->", detection_result)
+
+    if detection_result.get("should_block"):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "message": "Blocked by WAF (login)",
+                "attack_type": detection_result.get("attack_type"),
+                "severity": detection_result.get("severity"),
+                "payload": detection_result.get("payload"),
+            }
+        )
+
+    # --- 原本不安全的登入邏輯 ---
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     # 錯誤寫法：直接將 Pydantic 驗證過的字串拼接到 SQL 中
     sql = f"SELECT * FROM users WHERE username = '{data.username}' AND password = '{data.password}'"
     
-    print(f"[DEBUG] SQL Executed: {sql}") # 讓你在後台看到攻擊語句
+    print(f"[DEBUG] SQL Executed: {sql}")  # 讓你在後台看到攻擊語句
 
     try:
         cursor.execute(sql)
@@ -100,11 +153,24 @@ async def login(data: LoginRequest):
 # 目標：POST /api/search
 # 說明：直接回傳 HTML，未經過濾
 @app.post("/api/search", response_class=HTMLResponse)
-async def search(data: SearchRequest):
-    # 錯誤寫法：將使用者輸入直接放入 HTML 字串
-    # 如果 data.keyword 是 "<script>alert('XSS')</script>"，瀏覽器會執行它
+async def search(request: Request, data: SearchRequest):
+    # --- 先做攻擊偵測 ---
+    detection_input = build_detection_input(
+        request,
+        body={"keyword": data.keyword}
+    )
+    detection_result = detect_attack(detection_input)
+    print("[DETECT] /api/search ->", detection_result)
+
+    if detection_result.get("should_block"):
+        # 被判定為攻擊時直接擋下
+        return HTMLResponse(
+            content=f"<h2>搜尋請求已被阻擋：疑似 {detection_result.get('attack_type')}</h2>",
+            status_code=403
+        )
+
+    # --- 原本不安全的回傳方式 ---
     unsafe_html = f"<h2>搜尋結果： {data.keyword} </h2>"
-    
     # 使用 HTMLResponse 模擬後端直接渲染頁面 (Server-Side Rendering)
     return unsafe_html
 
@@ -113,12 +179,28 @@ async def search(data: SearchRequest):
 # 目標：GET /api/file
 # 說明：未檢查 filename 是否包含 "../"，可讀取系統檔案
 @app.get("/api/file")
-async def get_file(filename: str):
-    # 錯誤寫法：直接 open 使用者提供的路徑
-    # 攻擊：/api/file?filename=app.py 或 ../../../etc/passwd
+async def get_file(request: Request, filename: str):
+    # --- 先做攻擊偵測 ---
+    detection_input = build_detection_input(request)
+    detection_result = detect_attack(detection_input)
+    print("[DETECT] /api/file ->", detection_result)
+
+    if detection_result.get("should_block"):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "Blocked by WAF (file access)",
+                "attack_type": detection_result.get("attack_type"),
+                "payload": detection_result.get("payload"),
+            }
+        )
+
+    # --- 原本不安全的檔案讀取 ---
     try:
+        # 錯誤寫法：直接 open 使用者提供的路徑
+        # 攻擊：/api/file?filename=app.py 或 ../../../etc/passwd
         if not os.path.exists(filename):
-             return JSONResponse(status_code=404, content={"error": "File not found"})
+            return JSONResponse(status_code=404, content={"error": "File not found"})
              
         with open(filename, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -131,26 +213,43 @@ async def get_file(filename: str):
 # 目標：POST /api/proxy
 # 說明：Server 代替使用者發請求，未檢查是否為內網 IP
 @app.post("/api/proxy")
-def proxy(data: ProxyRequest):
+def proxy(request: Request, data: ProxyRequest):
     target_url = data.url
-    
-    # 錯誤寫法：沒有檢查 target_url 是否指向 localhost 或 192.168.x.x
+
+    # --- 先做攻擊偵測 ---
+    detection_input = build_detection_input(
+        request,
+        body={"url": target_url}
+    )
+    detection_result = detect_attack(detection_input)
+    print("[DETECT] /api/proxy ->", detection_result)
+
+    if detection_result.get("should_block"):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "Blocked by WAF (SSRF)",
+                "attack_type": detection_result.get("attack_type"),
+                "payload": detection_result.get("payload"),
+            }
+        )
+
+    # --- 原本不安全的 SSRF 邏輯 ---
     try:
         print(f"[DEBUG] Server fetching: {target_url}")
         resp = requests.get(target_url, timeout=3)
         return {
             "status_code": resp.status_code,
-            "sample_content": resp.text[:100] # 回傳前100字
+            "sample_content": resp.text[:100]  # 回傳前100字
         }
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # 【漏洞 5】Suspicious User-Agent
-# 這是一個被動漏洞。FastAPI 預設不會阻擋任何 User-Agent。
-# 只要攻擊者用 SQLMap 或 Nmap 掃描這個 API，
-# 你的 B 組員 (Detection) 應該要在 Middleware 偵測到它。
-# 這裡不需要寫額外程式碼，只需要讓 API 活著即可。
+# 這是一個被動漏洞，FastAPI 本身不擋任何 UA。
+# 只要有 request 帶著例如 "sqlmap"、"curl" 等 UA，
+# 在 build_detection_input + detect_attack 的流程中就會被標記為 SUSPICIOUS_UA。
 
 if __name__ == "__main__":
     import uvicorn
