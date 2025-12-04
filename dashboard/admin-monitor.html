@@ -352,7 +352,7 @@ function renderStats(logs) {
 
 /* ========== 取得資料 ========== */
 function fetchAttackLogs() {
-    fetch("http://127.0.0.1:5000/logs")
+    fetch("/api/logs")
         .then(res => res.json())
         .then(data => {
             renderTable(data);

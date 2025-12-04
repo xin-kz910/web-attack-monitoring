@@ -24,4 +24,5 @@ class AttackLog(Base):
     url = Column(String(2048), nullable=False)
     payload = Column(Text)
     attack_type = Column(String(50), nullable=False)
+    severity = Column(String(20), default="MEDIUM")
     user_agent = Column(Text)

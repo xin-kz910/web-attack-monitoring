@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import random # 記得加入這個，為了產生測試資料
 
 from .db import SessionLocal
 from .service import get_attack_logs, save_attack_log
@@ -28,6 +29,7 @@ class AttackLogOut(BaseModel):
     url: str
     payload: Optional[str] = None
     attack_type: str
+    severity: str
     user_agent: Optional[str] = None
 
     class Config:
@@ -37,16 +39,15 @@ class AttackLogOut(BaseModel):
 # ========== Router 本體 ==========
 
 router = APIRouter(
-    prefix="/logging",
+    prefix="/api",
     tags=["logging"],
 )
 
 
-@router.get("/attack-logs", response_model=List[AttackLogOut])
+@router.get("/logs", response_model=List[AttackLogOut])
 def list_attack_logs(limit: int = 100, db: Session = Depends(get_db)):
     """
-    例：GET /logging/attack-logs?limit=50
-    回傳最近 limit 筆攻擊紀錄。
+    對應前端 fetch("/api/logs")
     """
     logs = get_attack_logs(db, limit=limit)
     return logs
@@ -55,16 +56,19 @@ def list_attack_logs(limit: int = 100, db: Session = Depends(get_db)):
 @router.post("/test-attack", response_model=AttackLogOut)
 async def test_attack(request: Request, db: Session = Depends(get_db)):
     """
-    自我測試用：
-    呼叫這支 API 會寫一筆假攻擊紀錄到 attack_logs。
-    之後正式上線可以關掉或限內網使用。
+    產生測試資料用
     """
+    # 隨機產生一些 severity 和 type 讓圖表好看一點
+    types = ["SQLI", "XSS", "BRUTE_FORCE", "PATH_TRAVERSAL"]
+    severities = ["HIGH", "MEDIUM", "LOW"]
+    
     log = save_attack_log(
         db=db,
         ip_address=request.client.host,
         url=str(request.url),
-        payload="' OR 1=1 --",          # 假裝一個 SQLi payload
-        attack_type="SQLi",
+        payload=f"' OR 1=1 -- {random.randint(1, 999)}",
+        attack_type=random.choice(types),
+        severity=random.choice(severities),
         user_agent=request.headers.get("user-agent"),
     )
     return log

@@ -2,8 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # ===== 請改成你們自己的 MySQL 設定 =====
-MYSQL_USER = "your_user"        # 例如 "root"
-MYSQL_PASSWORD = "your_password"
+MYSQL_USER = "root"        # 例如 "root"
+MYSQL_PASSWORD = ""
 MYSQL_HOST = "127.0.0.1"        # 或資料庫主機 IP
 MYSQL_PORT = 3306
 MYSQL_DB = "security_demo"      # 你們建 attack_logs 那個 DB 名稱

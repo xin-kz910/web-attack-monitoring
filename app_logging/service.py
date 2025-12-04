@@ -12,6 +12,7 @@ def save_attack_log(
     url: str,
     payload: Optional[str],
     attack_type: str,
+    severity: str = "MEDIUM",  # <--- 檢查這裡！一定要有這一行參數
     user_agent: Optional[str] = None,
 ) -> AttackLog:
     """
@@ -23,6 +24,7 @@ def save_attack_log(
         url=url,
         payload=payload,
         attack_type=attack_type,
+        severity=severity,
         user_agent=user_agent,
     )
     db.add(log)
