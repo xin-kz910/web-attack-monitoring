@@ -36,6 +36,16 @@ class AttackLogOut(BaseModel):
         orm_mode = True
 
 
+# ★ 新增：給 B 模組用來「回報攻擊」的輸入模型
+class AttackLogCreate(BaseModel):
+    ip_address: str
+    url: str
+    payload: Optional[str] = None
+    attack_type: str
+    severity: str = "MEDIUM"
+    user_agent: Optional[str] = None
+
+
 # ========== Router 本體 ==========
 
 router = APIRouter(
@@ -70,5 +80,22 @@ async def test_attack(request: Request, db: Session = Depends(get_db)):
         attack_type=random.choice(types),
         severity=random.choice(severities),
         user_agent=request.headers.get("user-agent"),
+    )
+    return log
+
+
+@router.post("/report-attack", response_model=AttackLogOut)
+async def report_attack(attack: AttackLogCreate, db: Session = Depends(get_db)):
+    """
+     B 模組偵測到攻擊後，會呼叫這個 API 來寫 log。
+    """
+    log = save_attack_log(
+        db=db,
+        ip_address=attack.ip_address,
+        url=attack.url,
+        payload=attack.payload,
+        attack_type=attack.attack_type,
+        severity=attack.severity,
+        user_agent=attack.user_agent,
     )
     return log

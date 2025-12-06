@@ -53,6 +53,35 @@ def build_detection_input(request: Request, body: Optional[Dict] = None) -> dict
         "user_agent": request.headers.get("user-agent", "")
     }
 
+# ========= 將攻擊發送給 Logging Service（C 模組） =========
+
+LOGGING_SERVER_BASE = "http://127.0.0.1:8000"   # ← C 模組的網址與 port，依你們實際環境調整
+
+def send_attack_to_logger(detection_result: dict, request: Request):
+    """
+    如果偵測到攻擊，將攻擊資料送給 Logging Service 的 /api/report-attack。
+    """
+    if not detection_result.get("is_attack"):
+        return  # 沒偵測到攻擊不送
+
+    try:
+        url = f"{LOGGING_SERVER_BASE}/api/report-attack"
+
+        payload = {
+            "ip_address": detection_result.get("ip_address") or (request.client.host if request.client else ""),
+            "url": str(request.url),
+            "payload": detection_result.get("payload") or "",
+            "attack_type": detection_result.get("attack_type") or "OTHER",
+            "severity": detection_result.get("severity") or "LOW",
+            "user_agent": request.headers.get("user-agent", "")
+        }
+
+        requests.post(url, json=payload, timeout=2)
+        print("[LOGGING] Attack sent to logging service:", payload)
+
+    except Exception as e:
+        print("[LOGGING ERROR] 無法送到 Logging Service:", e)
+
 
 # --- 資料庫初始化 ---
 # 啟動時自動建立 users 表並插入測試帳號 
@@ -108,6 +137,9 @@ async def login(request: Request, data: LoginRequest):
     detection_result = detect_attack(detection_input)
     print("[DETECT] /api/login ->", detection_result)
 
+    send_attack_to_logger(detection_result, request)
+
+
     if detection_result.get("should_block"):
         return JSONResponse(
             status_code=403,
@@ -162,6 +194,8 @@ async def search(request: Request, data: SearchRequest):
     detection_result = detect_attack(detection_input)
     print("[DETECT] /api/search ->", detection_result)
 
+    send_attack_to_logger(detection_result, request)
+
     if detection_result.get("should_block"):
         # 被判定為攻擊時直接擋下
         return HTMLResponse(
@@ -184,6 +218,8 @@ async def get_file(request: Request, filename: str):
     detection_input = build_detection_input(request)
     detection_result = detect_attack(detection_input)
     print("[DETECT] /api/file ->", detection_result)
+
+    send_attack_to_logger(detection_result, request)
 
     if detection_result.get("should_block"):
         return JSONResponse(
@@ -223,6 +259,8 @@ def proxy(request: Request, data: ProxyRequest):
     )
     detection_result = detect_attack(detection_input)
     print("[DETECT] /api/proxy ->", detection_result)
+
+    send_attack_to_logger(detection_result, request)
 
     if detection_result.get("should_block"):
         return JSONResponse(
